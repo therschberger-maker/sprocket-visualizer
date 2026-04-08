@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { Sprocket } from '@/lib/types'
 import { calculateDrivenRpm, calculateGearRatio, calculateChainSpeed } from '@/lib/calculations'
 import ControlPanel from './ControlPanel'
-import SprocketSVG from './SprocketSVG'
+import SprocketSVG, { pitchCircleRatio } from './SprocketSVG'
 import ChainSVG from './ChainSVG'
 import SpecsDisplay from './SpecsDisplay'
 
@@ -52,6 +52,10 @@ export default function SprocketVisualizer() {
   const driverCx = SVG_WIDTH / 2 - spacing / 2
   const drivenCx = SVG_WIDTH / 2 + spacing / 2
   const centerY = SVG_HEIGHT / 2
+
+  // Chain wraps at pitch circle, not outside diameter
+  const driverChainRadius = driver ? driverRadius * pitchCircleRatio(driver.num_teeth) : driverRadius * 0.9
+  const drivenChainRadius = driven ? drivenRadius * pitchCircleRatio(driven.num_teeth) : drivenRadius * 0.9
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-slate-200">
@@ -123,8 +127,8 @@ export default function SprocketVisualizer() {
                 {/* Chain */}
                 {driver && driven && (
                   <ChainSVG
-                    driver={{ cx: driverCx, cy: centerY, radius: driverRadius * 0.85 }}
-                    driven={{ cx: drivenCx, cy: centerY, radius: drivenRadius * 0.85 }}
+                    driver={{ cx: driverCx, cy: centerY, radius: driverChainRadius }}
+                    driven={{ cx: drivenCx, cy: centerY, radius: drivenChainRadius }}
                     rpm={driverRpm}
                   />
                 )}
@@ -139,6 +143,8 @@ export default function SprocketVisualizer() {
                     cy={centerY}
                     label={`Driver: ${driver.num_teeth}T`}
                     direction="cw"
+                    chainPitchInches={driver.chain_pitch_inches}
+                    chainSize={driver.chain_size}
                   />
                 )}
 
@@ -152,6 +158,8 @@ export default function SprocketVisualizer() {
                     cy={centerY}
                     label={`Driven: ${driven.num_teeth}T`}
                     direction="cw"
+                    chainPitchInches={driven.chain_pitch_inches}
+                    chainSize={driven.chain_size}
                   />
                 )}
 
