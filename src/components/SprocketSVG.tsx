@@ -17,101 +17,107 @@ interface SprocketSVGProps {
 function n(v: number): string { return v.toFixed(3) }
 
 /**
- * Generate a sprocket profile matching McMaster-Carr 2D drawings:
- * - Deep U-shaped roller pockets
- * - Wide teeth with slightly tapered sides and rounded tips
- * - Short tooth height relative to body
+ * Generate sprocket profile matching McMaster-Carr engineering drawings.
+ *
+ * Key visual features from reference:
+ * - Teeth are tall and triangular with slightly rounded tips
+ * - Valleys are deep, wide, semicircular (roller seats)
+ * - Valleys are wider than the teeth
+ * - Smooth curved flanks connecting tooth tips to valley bottoms
  */
 function generateSprocketProfile(N: number, outerRadius: number): string {
   const step = (2 * Math.PI) / N
 
-  // Proportions matched to McMaster drawings
-  const toothHeight = outerRadius * 0.08
-  const rootR = outerRadius - toothHeight            // bottom of roller pocket
-  const rollerPocketR = step * rootR * 0.38           // roller pocket arc radius
+  // Proportions calibrated from McMaster drawings
+  // Use a consistent tooth-to-gap proportion regardless of tooth count
+  const toothHeight = outerRadius * 0.14
+  const rootR = outerRadius - toothHeight       // valley floor radius
+  const rollerR = step * rootR * 0.40           // roller pocket arc radius
 
   const parts: string[] = []
 
   for (let i = 0; i < N; i++) {
-    const toothAngle = i * step          // center of tooth
-    const valleyAngle = toothAngle + step / 2  // center of valley
+    const toothAngle = i * step
+    const valleyAngle = toothAngle + step / 2
 
-    // Tooth profile points
-    // The tooth is wide — occupies ~55% of the step
-    const toothHalf = step * 0.275
+    // Tooth is narrow — tip spans ~30% of the step
+    const tipHalf = step * 0.15
 
-    // Tooth tip: left and right edges at outer radius
-    const tipL = toothAngle - toothHalf * 0.6
-    const tipR = toothAngle + toothHalf * 0.6
+    // Valley is wide — spans ~70% of the step
+    const valHalf = step * 0.30
 
-    // Tooth base (where tooth meets the body): wider than the tip
-    const baseL = toothAngle - toothHalf
-    const baseR = toothAngle + toothHalf
+    // Tooth tip points (at outer radius, narrow)
+    const tipLa = toothAngle - tipHalf
+    const tipRa = toothAngle + tipHalf
+    const tipLx = Math.cos(tipLa) * outerRadius
+    const tipLy = Math.sin(tipLa) * outerRadius
+    const tipRx = Math.cos(tipRa) * outerRadius
+    const tipRy = Math.sin(tipRa) * outerRadius
 
-    // Valley edges
-    const valleyHalf = step * 0.225
-    const valL = valleyAngle - valleyHalf
-    const valR = valleyAngle + valleyHalf
-
-    // Points
-    const baseLx = Math.cos(baseL) * (rootR + toothHeight * 0.15)
-    const baseLy = Math.sin(baseL) * (rootR + toothHeight * 0.15)
-    const tipLx = Math.cos(tipL) * outerRadius
-    const tipLy = Math.sin(tipL) * outerRadius
-    const tipRx = Math.cos(tipR) * outerRadius
-    const tipRy = Math.sin(tipR) * outerRadius
-    const baseRx = Math.cos(baseR) * (rootR + toothHeight * 0.15)
-    const baseRy = Math.sin(baseR) * (rootR + toothHeight * 0.15)
-
-    // Valley (roller pocket) arc endpoints
-    const valRx = Math.cos(valL) * rootR
-    const valRy = Math.sin(valL) * rootR
-    const valLx = Math.cos(valR) * rootR
-    const valLy = Math.sin(valR) * rootR
+    // Valley endpoints (at root radius, wide)
+    const valLa = valleyAngle - valHalf
+    const valRa = valleyAngle + valHalf
+    const valLx = Math.cos(valRa) * rootR   // note: right angle of valley = left side going CW
+    const valLy = Math.sin(valRa) * rootR
+    const valRx = Math.cos(valLa) * rootR
+    const valRy = Math.sin(valLa) * rootR
 
     if (i === 0) {
-      parts.push(`M ${n(baseLx)} ${n(baseLy)}`)
+      parts.push(`M ${n(tipLx)} ${n(tipLy)}`)
     }
 
-    // Left flank: base to tip (straight line with slight taper)
-    parts.push(`L ${n(tipLx)} ${n(tipLy)}`)
-
-    // Tooth tip: arc across the top (rounded)
-    const tipArcR = outerRadius * step * 0.3
+    // Tooth tip: small arc (rounded tip)
+    const tipArcR = outerRadius * 0.6
     parts.push(`A ${n(tipArcR)} ${n(tipArcR)} 0 0 1 ${n(tipRx)} ${n(tipRy)}`)
 
-    // Right flank: tip back down to base
-    parts.push(`L ${n(baseRx)} ${n(baseRy)}`)
+    // Right flank: smooth curve down from tooth tip to valley edge
+    // Use cubic bezier for smooth S-curve flank
+    const flankMidR = (outerRadius + rootR) / 2
+    const flankRa1 = tipRa + step * 0.05
+    const flankRa2 = valLa - step * 0.05  // valLa is actually on the right going CW
+    const cp1x = Math.cos(flankRa1) * (outerRadius * 0.96)
+    const cp1y = Math.sin(flankRa1) * (outerRadius * 0.96)
+    const cp2x = Math.cos(flankRa2) * (rootR * 1.02)
+    const cp2y = Math.sin(flankRa2) * (rootR * 1.02)
+    // Use the correct valley endpoint
+    const vRx = Math.cos(valLa) * rootR
+    const vRy = Math.sin(valLa) * rootR
+    parts.push(`C ${n(cp1x)} ${n(cp1y)} ${n(cp2x)} ${n(cp2y)} ${n(vRx)} ${n(vRy)}`)
 
-    // Transition to valley
-    parts.push(`L ${n(valRx)} ${n(valRy)}`)
+    // Valley: semicircular roller pocket arc
+    const vLx = Math.cos(valRa) * rootR
+    const vLy = Math.sin(valRa) * rootR
+    parts.push(`A ${n(rollerR)} ${n(rollerR)} 0 0 1 ${n(vLx)} ${n(vLy)}`)
 
-    // Roller pocket: deep U-shaped arc
-    parts.push(`A ${n(rollerPocketR)} ${n(rollerPocketR)} 0 0 1 ${n(valLx)} ${n(valLy)}`)
-
-    // Transition to next tooth base
+    // Left flank of next tooth: smooth curve up from valley to next tooth tip
     const nextToothAngle = (i + 1) * step
-    const nextBaseL = nextToothAngle - toothHalf
-    const nextBaseLx = Math.cos(nextBaseL) * (rootR + toothHeight * 0.15)
-    const nextBaseLy = Math.sin(nextBaseL) * (rootR + toothHeight * 0.15)
-    parts.push(`L ${n(nextBaseLx)} ${n(nextBaseLy)}`)
+    const nextTipLa = nextToothAngle - tipHalf
+    const ntLx = Math.cos(nextTipLa) * outerRadius
+    const ntLy = Math.sin(nextTipLa) * outerRadius
+
+    const flankLa1 = valRa + step * 0.05
+    const flankLa2 = nextTipLa - step * 0.05
+    const cp3x = Math.cos(flankLa1) * (rootR * 1.02)
+    const cp3y = Math.sin(flankLa1) * (rootR * 1.02)
+    const cp4x = Math.cos(flankLa2) * (outerRadius * 0.96)
+    const cp4y = Math.sin(flankLa2) * (outerRadius * 0.96)
+    parts.push(`C ${n(cp3x)} ${n(cp3y)} ${n(cp4x)} ${n(cp4y)} ${n(ntLx)} ${n(ntLy)}`)
   }
 
   parts.push('Z')
   return parts.join(' ')
 }
 
-/** Chain wraps at pitch circle (~92% of outer radius) */
+/** Chain wraps at pitch circle */
 export function pitchCircleRatio(numTeeth: number): number {
-  return 0.92
+  return 0.90
 }
 
 export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label, direction = 'cw' }: SprocketSVGProps) {
   const profile = useMemo(() => generateSprocketProfile(numTeeth, outerRadius), [numTeeth, outerRadius])
 
-  const boreRadius = outerRadius * 0.10
-  const hubRadius = outerRadius * 0.22
-  const bodyRadius = outerRadius * 0.88
+  const boreRadius = outerRadius * 0.08
+  const hubRadius = outerRadius * 0.18
   const visualRpm = Math.min(Math.abs(rpm), 300)
   const duration = visualRpm > 0 ? 60 / visualRpm : 0
   const toAngle = direction === 'ccw' ? -360 : 360
@@ -131,44 +137,31 @@ export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label,
             />
           )}
 
-          {/* Body disc */}
-          <circle r={bodyRadius} fill="#727278" stroke="none" />
-
-          {/* Tooth profile */}
+          {/* Tooth profile — single shape */}
           <path
             d={profile}
-            fill="#8a8a90"
-            stroke="#9a9aa0"
+            fill="#a0a0a6"
+            stroke="#b8b8be"
             strokeWidth={0.4}
             strokeLinejoin="round"
           />
 
-          {/* Chamfer ring — subtle edge between teeth and body */}
-          <circle r={bodyRadius} fill="none" stroke="#62626a" strokeWidth={0.8} />
+          {/* Inner body disc — darker to create depth */}
+          <circle r={outerRadius * 0.82} fill="#8a8a90" stroke="none" />
 
-          {/* Hub raised area */}
-          <circle r={hubRadius} fill="#7e7e84" stroke="#6a6a72" strokeWidth={1} />
+          {/* Hub */}
+          <circle r={hubRadius} fill="#929298" stroke="#7a7a82" strokeWidth={0.8} />
 
           {/* Bore */}
-          <circle r={boreRadius} fill="#1a1a2e" stroke="#4e4e56" strokeWidth={0.8} />
+          <circle r={boreRadius} fill="#1a1a2e" stroke="#6a6a72" strokeWidth={0.6} />
 
           {/* Keyway */}
           <rect
             x={-boreRadius * 0.4}
             y={-boreRadius - 0.3}
             width={boreRadius * 0.8}
-            height={boreRadius * 0.45}
+            height={boreRadius * 0.4}
             fill="#1a1a2e"
-          />
-
-          {/* Set screw hole on hub */}
-          <circle
-            cx={hubRadius * 0.65}
-            cy={-hubRadius * 0.1}
-            r={boreRadius * 0.18}
-            fill="#5a5a62"
-            stroke="#4e4e56"
-            strokeWidth={0.3}
           />
         </g>
       </g>
