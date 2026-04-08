@@ -17,68 +17,57 @@ export default function ChainSVG({ driver, driven, rpm }: ChainSVGProps) {
   const r1 = driver.radius
   const r2 = driven.radius
 
-  // Tangent angle for chain lines connecting different-sized sprockets
   const rDiff = r2 - r1
   const tangentAngle = Math.asin(Math.min(1, Math.max(-1, rDiff / dist)))
 
-  const perpAngle1 = angle + Math.PI / 2 - tangentAngle
-  const perpAngle2 = angle - Math.PI / 2 + tangentAngle
+  // In SVG, +Y is down. perpAngle1 (angle + PI/2) points downward = visual bottom.
+  // perpAngle2 (angle - PI/2) points upward = visual top.
+  const perpAngleBottom = angle + Math.PI / 2 - tangentAngle
+  const perpAngleTop = angle - Math.PI / 2 + tangentAngle
 
-  // Top chain strand
-  const topStart = {
-    x: driver.cx + Math.cos(perpAngle1) * r1,
-    y: driver.cy + Math.sin(perpAngle1) * r1,
+  // Visual top strand (tight side for CW rotation: driver → driven)
+  const topDriverPt = {
+    x: driver.cx + Math.cos(perpAngleTop) * r1,
+    y: driver.cy + Math.sin(perpAngleTop) * r1,
   }
-  const topEnd = {
-    x: driven.cx + Math.cos(perpAngle1) * r2,
-    y: driven.cy + Math.sin(perpAngle1) * r2,
+  const topDrivenPt = {
+    x: driven.cx + Math.cos(perpAngleTop) * r2,
+    y: driven.cy + Math.sin(perpAngleTop) * r2,
   }
 
-  // Bottom chain strand
-  const bottomStart = {
-    x: driver.cx + Math.cos(perpAngle2) * r1,
-    y: driver.cy + Math.sin(perpAngle2) * r1,
+  // Visual bottom strand (slack side: driven → driver)
+  const bottomDriverPt = {
+    x: driver.cx + Math.cos(perpAngleBottom) * r1,
+    y: driver.cy + Math.sin(perpAngleBottom) * r1,
   }
-  const bottomEnd = {
-    x: driven.cx + Math.cos(perpAngle2) * r2,
-    y: driven.cy + Math.sin(perpAngle2) * r2,
+  const bottomDrivenPt = {
+    x: driven.cx + Math.cos(perpAngleBottom) * r2,
+    y: driven.cy + Math.sin(perpAngleBottom) * r2,
   }
 
   const visualRpm = Math.min(Math.abs(rpm), 300)
   const chainDuration = visualRpm > 0 ? 20 / visualRpm : 0
 
-  // Unique IDs to avoid conflicts if multiple chains rendered
   const topId = `chainTop-${Math.round(driver.cx)}`
   const bottomId = `chainBottom-${Math.round(driver.cx)}`
-
-  // Full chain loop path for animated markers
-  // Top strand -> arc around driven -> bottom strand -> arc around driver
-  const topAngle1 = Math.atan2(topEnd.y - driven.cy, topEnd.x - driven.cx)
-  const bottomAngle1 = Math.atan2(bottomEnd.y - driven.cy, bottomEnd.x - driven.cx)
-  const topAngle2 = Math.atan2(topStart.y - driver.cy, topStart.x - driver.cx)
-  const bottomAngle2 = Math.atan2(bottomStart.y - driver.cy, bottomStart.x - driver.cx)
-
-  // Determine sweep for arcs (we want the chain to wrap around the far side)
-  const drivenSweep = topAngle1 > bottomAngle1 ? 1 : 0
-  const driverSweep = bottomAngle2 > topAngle2 ? 1 : 0
 
   return (
     <g>
       {/* Chain strands - double line for realistic chain look */}
-      <line x1={topStart.x} y1={topStart.y} x2={topEnd.x} y2={topEnd.y}
+      <line x1={topDriverPt.x} y1={topDriverPt.y} x2={topDrivenPt.x} y2={topDrivenPt.y}
         stroke="#5a4a2a" strokeWidth={6} strokeLinecap="round" />
-      <line x1={topStart.x} y1={topStart.y} x2={topEnd.x} y2={topEnd.y}
+      <line x1={topDriverPt.x} y1={topDriverPt.y} x2={topDrivenPt.x} y2={topDrivenPt.y}
         stroke="#8a7a4a" strokeWidth={3} strokeLinecap="round" />
 
-      <line x1={bottomStart.x} y1={bottomStart.y} x2={bottomEnd.x} y2={bottomEnd.y}
+      <line x1={bottomDriverPt.x} y1={bottomDriverPt.y} x2={bottomDrivenPt.x} y2={bottomDrivenPt.y}
         stroke="#5a4a2a" strokeWidth={6} strokeLinecap="round" />
-      <line x1={bottomStart.x} y1={bottomStart.y} x2={bottomEnd.x} y2={bottomEnd.y}
+      <line x1={bottomDriverPt.x} y1={bottomDriverPt.y} x2={bottomDrivenPt.x} y2={bottomDrivenPt.y}
         stroke="#8a7a4a" strokeWidth={3} strokeLinecap="round" />
 
-      {/* Animated chain link markers on top strand */}
+      {/* Top strand: chain moves driver → driven (CW rotation) */}
       <path
         id={topId}
-        d={`M ${topStart.x} ${topStart.y} L ${topEnd.x} ${topEnd.y}`}
+        d={`M ${topDriverPt.x} ${topDriverPt.y} L ${topDrivenPt.x} ${topDrivenPt.y}`}
         fill="none"
         stroke="none"
       />
@@ -104,10 +93,10 @@ export default function ChainSVG({ driver, driven, rpm }: ChainSVGProps) {
         </rect>
       ))}
 
-      {/* Animated chain link markers on bottom strand */}
+      {/* Bottom strand: chain moves driven → driver (return path) */}
       <path
         id={bottomId}
-        d={`M ${bottomEnd.x} ${bottomEnd.y} L ${bottomStart.x} ${bottomStart.y}`}
+        d={`M ${bottomDrivenPt.x} ${bottomDrivenPt.y} L ${bottomDriverPt.x} ${bottomDriverPt.y}`}
         fill="none"
         stroke="none"
       />
