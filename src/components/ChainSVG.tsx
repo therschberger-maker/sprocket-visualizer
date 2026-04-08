@@ -17,14 +17,14 @@ export default function ChainSVG({ driver, driven, rpm }: ChainSVGProps) {
   const r1 = driver.radius
   const r2 = driven.radius
 
-  // Calculate tangent lines for the chain
+  // Tangent angle for chain lines connecting different-sized sprockets
   const rDiff = r2 - r1
   const tangentAngle = Math.asin(Math.min(1, Math.max(-1, rDiff / dist)))
 
   const perpAngle1 = angle + Math.PI / 2 - tangentAngle
   const perpAngle2 = angle - Math.PI / 2 + tangentAngle
 
-  // Top chain line
+  // Top chain strand
   const topStart = {
     x: driver.cx + Math.cos(perpAngle1) * r1,
     y: driver.cy + Math.sin(perpAngle1) * r1,
@@ -34,7 +34,7 @@ export default function ChainSVG({ driver, driven, rpm }: ChainSVGProps) {
     y: driven.cy + Math.sin(perpAngle1) * r2,
   }
 
-  // Bottom chain line
+  // Bottom chain strand
   const bottomStart = {
     x: driver.cx + Math.cos(perpAngle2) * r1,
     y: driver.cy + Math.sin(perpAngle2) * r1,
@@ -45,74 +45,90 @@ export default function ChainSVG({ driver, driven, rpm }: ChainSVGProps) {
   }
 
   const visualRpm = Math.min(Math.abs(rpm), 300)
-  const chainDuration = visualRpm > 0 ? 30 / visualRpm : 0
+  const chainDuration = visualRpm > 0 ? 20 / visualRpm : 0
 
-  // Chain path for animated links
-  const chainPath = `
-    M ${topStart.x} ${topStart.y}
-    L ${topEnd.x} ${topEnd.y}
-    A ${r2} ${r2} 0 1 1 ${bottomEnd.x} ${bottomEnd.y}
-    L ${bottomStart.x} ${bottomStart.y}
-    A ${r1} ${r1} 0 1 1 ${topStart.x} ${topStart.y}
-    Z
-  `
+  // Unique IDs to avoid conflicts if multiple chains rendered
+  const topId = `chainTop-${Math.round(driver.cx)}`
+  const bottomId = `chainBottom-${Math.round(driver.cx)}`
+
+  // Full chain loop path for animated markers
+  // Top strand -> arc around driven -> bottom strand -> arc around driver
+  const topAngle1 = Math.atan2(topEnd.y - driven.cy, topEnd.x - driven.cx)
+  const bottomAngle1 = Math.atan2(bottomEnd.y - driven.cy, bottomEnd.x - driven.cx)
+  const topAngle2 = Math.atan2(topStart.y - driver.cy, topStart.x - driver.cx)
+  const bottomAngle2 = Math.atan2(bottomStart.y - driver.cy, bottomStart.x - driver.cx)
+
+  // Determine sweep for arcs (we want the chain to wrap around the far side)
+  const drivenSweep = topAngle1 > bottomAngle1 ? 1 : 0
+  const driverSweep = bottomAngle2 > topAngle2 ? 1 : 0
 
   return (
     <g>
-      {/* Chain outline */}
-      <line x1={topStart.x} y1={topStart.y} x2={topEnd.x} y2={topEnd.y} stroke="#8a7a5a" strokeWidth={4} strokeLinecap="round" />
-      <line x1={bottomStart.x} y1={bottomStart.y} x2={bottomEnd.x} y2={bottomEnd.y} stroke="#8a7a5a" strokeWidth={4} strokeLinecap="round" />
+      {/* Chain strands - double line for realistic chain look */}
+      <line x1={topStart.x} y1={topStart.y} x2={topEnd.x} y2={topEnd.y}
+        stroke="#5a4a2a" strokeWidth={6} strokeLinecap="round" />
+      <line x1={topStart.x} y1={topStart.y} x2={topEnd.x} y2={topEnd.y}
+        stroke="#8a7a4a" strokeWidth={3} strokeLinecap="round" />
 
-      {/* Chain link markers along top */}
+      <line x1={bottomStart.x} y1={bottomStart.y} x2={bottomEnd.x} y2={bottomEnd.y}
+        stroke="#5a4a2a" strokeWidth={6} strokeLinecap="round" />
+      <line x1={bottomStart.x} y1={bottomStart.y} x2={bottomEnd.x} y2={bottomEnd.y}
+        stroke="#8a7a4a" strokeWidth={3} strokeLinecap="round" />
+
+      {/* Animated chain link markers on top strand */}
       <path
-        id="chainPathTop"
+        id={topId}
         d={`M ${topStart.x} ${topStart.y} L ${topEnd.x} ${topEnd.y}`}
         fill="none"
         stroke="none"
       />
-      {chainDuration > 0 && Array.from({ length: 8 }).map((_, i) => (
+      {chainDuration > 0 && Array.from({ length: 6 }).map((_, i) => (
         <rect
-          key={`link-top-${i}`}
-          width={6}
+          key={`lt-${i}`}
+          width={5}
           height={8}
           rx={1}
-          fill="#b8a878"
-          stroke="#9a8a6a"
+          fill="#c4a44a"
+          stroke="#a08838"
           strokeWidth={0.5}
+          opacity={0.8}
         >
           <animateMotion
             dur={`${chainDuration}s`}
             repeatCount="indefinite"
-            begin={`${(i / 8) * chainDuration}s`}
+            begin={`${(i / 6) * chainDuration}s`}
+            rotate="auto"
           >
-            <mpath href="#chainPathTop" />
+            <mpath href={`#${topId}`} />
           </animateMotion>
         </rect>
       ))}
 
-      {/* Chain link markers along bottom */}
+      {/* Animated chain link markers on bottom strand */}
       <path
-        id="chainPathBottom"
+        id={bottomId}
         d={`M ${bottomEnd.x} ${bottomEnd.y} L ${bottomStart.x} ${bottomStart.y}`}
         fill="none"
         stroke="none"
       />
-      {chainDuration > 0 && Array.from({ length: 8 }).map((_, i) => (
+      {chainDuration > 0 && Array.from({ length: 6 }).map((_, i) => (
         <rect
-          key={`link-bottom-${i}`}
-          width={6}
+          key={`lb-${i}`}
+          width={5}
           height={8}
           rx={1}
-          fill="#b8a878"
-          stroke="#9a8a6a"
+          fill="#c4a44a"
+          stroke="#a08838"
           strokeWidth={0.5}
+          opacity={0.8}
         >
           <animateMotion
             dur={`${chainDuration}s`}
             repeatCount="indefinite"
-            begin={`${(i / 8) * chainDuration}s`}
+            begin={`${(i / 6) * chainDuration}s`}
+            rotate="auto"
           >
-            <mpath href="#chainPathBottom" />
+            <mpath href={`#${bottomId}`} />
           </animateMotion>
         </rect>
       ))}

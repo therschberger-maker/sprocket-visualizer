@@ -88,12 +88,6 @@ export default function SprocketVisualizer() {
                 style={{ maxHeight: '450px' }}
               >
                 <defs>
-                  <style>{`
-                    @keyframes spin {
-                      from { transform: rotate(0deg); }
-                      to { transform: rotate(360deg); }
-                    }
-                  `}</style>
                   <radialGradient id="bgGrad" cx="50%" cy="50%">
                     <stop offset="0%" stopColor="#1a1a2e" />
                     <stop offset="100%" stopColor="#0f0f1a" />
