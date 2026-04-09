@@ -48,6 +48,18 @@ export default function SprocketVisualizer() {
   const driverRadius = driver ? scaleRadius(driver.outside_diameter_inches, maxDiameter) : 60
   const drivenRadius = driven ? scaleRadius(driven.outside_diameter_inches, maxDiameter) : 60
 
+  // Compute a fixed tooth height in SVG units — same for both sprockets
+  // since they share the same chain. Uses the driver's real dimensions to
+  // establish the SVG-to-inches scale, then applies real tooth height.
+  const svgToothHeight = useMemo(() => {
+    const ref = driver || driven
+    if (!ref) return 10
+    const svgScale = scaleRadius(ref.outside_diameter_inches, maxDiameter) / (ref.outside_diameter_inches / 2)
+    // Real tooth height ≈ 19.4% of outside radius (from McMaster measurements)
+    const realToothHeight = (ref.outside_diameter_inches / 2) * 0.194
+    return realToothHeight * svgScale
+  }, [driver, driven, maxDiameter])
+
   const spacing = driverRadius + drivenRadius + 80
   const driverCx = SVG_WIDTH / 2 - spacing / 2
   const drivenCx = SVG_WIDTH / 2 + spacing / 2
@@ -143,8 +155,7 @@ export default function SprocketVisualizer() {
                     cy={centerY}
                     label={`Driver: ${driver.num_teeth}T`}
                     direction="cw"
-                    chainPitchInches={driver.chain_pitch_inches}
-                    chainSize={driver.chain_size}
+                    toothHeight={svgToothHeight}
                   />
                 )}
 
@@ -158,8 +169,7 @@ export default function SprocketVisualizer() {
                     cy={centerY}
                     label={`Driven: ${driven.num_teeth}T`}
                     direction="cw"
-                    chainPitchInches={driven.chain_pitch_inches}
-                    chainSize={driven.chain_size}
+                    toothHeight={svgToothHeight}
                   />
                 )}
 

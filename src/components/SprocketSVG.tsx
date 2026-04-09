@@ -10,8 +10,7 @@ interface SprocketSVGProps {
   cy: number
   label: string
   direction?: 'cw' | 'ccw'
-  chainPitchInches?: number
-  chainSize?: string
+  toothHeight?: number  // fixed SVG tooth height — same for both sprockets
 }
 
 // Normalized tooth profile extracted from McMaster-Carr 6793K7 engineering drawing (15T sprocket).
@@ -72,71 +71,23 @@ const TOOTH_PROFILE = [
 function n(v: number): string { return v.toFixed(3) }
 
 /**
- * Interpolate the McMaster profile for a given tooth count.
- * Low tooth counts (<=15) use the exact extracted profile.
- * Higher tooth counts blend toward a smoother, wider-tipped version
- * so teeth maintain a good visual aspect ratio.
- */
-function getAdaptedProfile(N: number): { a: number; r: number }[] {
-  if (N <= 15) return TOOTH_PROFILE
-
-  // For higher tooth counts, widen the tooth tip and soften the flanks.
-  // The blend factor goes from 0 (at N=15) to 1 (at N>=50).
-  const blend = Math.min(1, (N - 15) / 35)
-
-  // The "wide" profile: wider flat tip, shallower valley, smoother flanks
-  return TOOTH_PROFILE.map(pt => {
-    let r = pt.r
-    let a = pt.a
-
-    // Compress the flanks inward (widen the tooth tip area)
-    // Push profile points toward the tooth center (a ≈ 0 or 1) and valley center (a ≈ 0.5)
-    if (a < 0.5) {
-      // Left half: compress flank toward midpoints
-      if (a > 0.08 && a < 0.375) {
-        // Flank region: shift points left (toward tooth tip)
-        const shift = blend * 0.04
-        a = Math.max(0.08, a - shift)
-      }
-    } else {
-      // Right half: mirror
-      if (a > 0.625 && a < 0.92) {
-        const shift = blend * 0.04
-        a = Math.min(0.92, a + shift)
-      }
-    }
-
-    // Raise the valley floor slightly (less deep for many teeth = less spiky look)
-    if (r < 0.1) {
-      r = r + blend * 0.08
-    }
-    // Flatten the tooth tip more (wider plateau)
-    if (r > 0.9) {
-      r = Math.min(1.0, r + blend * 0.03)
-    }
-
-    return { a, r }
-  })
-}
-
-/**
  * Generate sprocket profile using the real McMaster-Carr tooth shape.
- * The normalized profile is adapted per tooth count and replicated N times.
+ * toothHeight is a FIXED size in SVG units — the same for both sprockets,
+ * because both mesh with the same chain. A bigger sprocket just has more
+ * identical teeth arrayed around a larger circle.
  */
-function generateSprocketProfile(N: number, outerRadius: number): string {
+function generateSprocketProfile(N: number, outerRadius: number, toothHeight: number): string {
   const step = (2 * Math.PI) / N
-  const toothHeight = outerRadius * 0.194  // from McMaster: 19.4% of OD
   const baseR = outerRadius - toothHeight   // inner radius (r=0 in profile)
 
-  const adapted = getAdaptedProfile(N)
   const parts: string[] = []
   let first = true
 
   for (let tooth = 0; tooth < N; tooth++) {
     const toothStartAngle = tooth * step
 
-    for (let i = 0; i < adapted.length; i++) {
-      const pt = adapted[i]
+    for (let i = 0; i < TOOTH_PROFILE.length; i++) {
+      const pt = TOOTH_PROFILE[i]
       const angle = toothStartAngle + pt.a * step
       const radius = baseR + pt.r * toothHeight
 
@@ -161,8 +112,9 @@ export function pitchCircleRatio(numTeeth: number): number {
   return 0.88
 }
 
-export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label, direction = 'cw' }: SprocketSVGProps) {
-  const profile = useMemo(() => generateSprocketProfile(numTeeth, outerRadius), [numTeeth, outerRadius])
+export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label, direction = 'cw', toothHeight: toothHeightProp }: SprocketSVGProps) {
+  const th = toothHeightProp ?? outerRadius * 0.194
+  const profile = useMemo(() => generateSprocketProfile(numTeeth, outerRadius, th), [numTeeth, outerRadius, th])
 
   const boreRadius = outerRadius * 0.08
   const hubRadius = outerRadius * 0.18
