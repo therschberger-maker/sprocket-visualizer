@@ -20,10 +20,15 @@ export default function ControlPanel({ onDriverChange, onDrivenChange, driverRpm
 
   useEffect(() => {
     async function loadChainSizes() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('sprockets')
         .select('chain_size, standard')
         .order('chain_size')
+
+      if (error) {
+        console.error('Failed to load chain sizes:', error.message)
+        return
+      }
 
       if (data) {
         const counts = new Map<string, { standard: string; count: number }>()
@@ -50,11 +55,16 @@ export default function ControlPanel({ onDriverChange, onDrivenChange, driverRpm
       return
     }
     async function loadSprockets() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('sprockets')
         .select('*')
         .eq('chain_size', selectedChainSize)
         .order('num_teeth')
+
+      if (error) {
+        console.error('Failed to load sprockets:', error.message)
+        return
+      }
 
       if (data) setSprockets(data as Sprocket[])
     }
