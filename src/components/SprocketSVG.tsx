@@ -18,54 +18,27 @@ interface SprocketSVGProps {
 // r=0 is the inner radius (base), r=1 is the outer radius (tooth tip).
 // Values below 0 represent the roller pocket dip.
 const TOOTH_PROFILE = [
-  { a: 0.000, r: 0.96 },   // valley edge (high side)
-  { a: 0.042, r: 0.96 },
-  { a: 0.063, r: 0.96 },
-  { a: 0.083, r: 0.89 },   // start dropping into flank
-  { a: 0.104, r: 0.86 },
-  { a: 0.125, r: 0.77 },
-  { a: 0.146, r: 0.73 },
-  { a: 0.167, r: 0.62 },
-  { a: 0.188, r: 0.47 },   // steep flank descent
-  { a: 0.208, r: 0.37 },
-  { a: 0.229, r: 0.27 },
-  { a: 0.250, r: 0.22 },
-  { a: 0.271, r: 0.15 },
-  { a: 0.292, r: 0.11 },
-  { a: 0.313, r: 0.07 },
-  { a: 0.333, r: 0.03 },
-  { a: 0.354, r: 0.02 },
-  { a: 0.375, r: 0.00 },   // approaching valley floor
-  { a: 0.396, r: -0.01 },
-  { a: 0.417, r: -0.02 },  // roller pocket (below base)
-  { a: 0.438, r: -0.03 },
-  { a: 0.458, r: -0.04 },
-  { a: 0.479, r: -0.04 },  // deepest point
+  { a: 0.000, r: 0.96 },   // tooth tip center
+  { a: 0.050, r: 0.96 },   // tip plateau edge
+  { a: 0.100, r: 0.86 },   // start descending flank
+  { a: 0.150, r: 0.70 },   // mid flank
+  { a: 0.200, r: 0.42 },   // steep descent
+  { a: 0.250, r: 0.22 },   // lower flank
+  { a: 0.310, r: 0.07 },   // approaching valley
+  { a: 0.375, r: 0.00 },   // valley floor
+  { a: 0.420, r: -0.03 },  // roller pocket dip
+  { a: 0.480, r: -0.04 },  // deepest point
   { a: 0.500, r: -0.04 },  // valley center
-  { a: 0.521, r: -0.03 },
-  { a: 0.542, r: -0.03 },
-  { a: 0.563, r: -0.01 },
-  { a: 0.583, r: 0.00 },
-  { a: 0.604, r: 0.01 },
-  { a: 0.625, r: 0.04 },
-  { a: 0.646, r: 0.05 },
-  { a: 0.667, r: 0.09 },
-  { a: 0.688, r: 0.14 },   // rising flank
-  { a: 0.708, r: 0.16 },
-  { a: 0.729, r: 0.26 },
-  { a: 0.750, r: 0.36 },
-  { a: 0.771, r: 0.46 },
-  { a: 0.792, r: 0.57 },   // steep flank ascent
-  { a: 0.813, r: 0.65 },
-  { a: 0.833, r: 0.74 },
-  { a: 0.854, r: 0.82 },
-  { a: 0.875, r: 0.89 },
-  { a: 0.896, r: 0.92 },
-  { a: 0.917, r: 0.95 },   // approaching next tooth tip
-  { a: 0.938, r: 0.95 },
-  { a: 0.958, r: 0.95 },
-  { a: 0.979, r: 0.95 },
-  { a: 1.000, r: 0.95 },   // next valley edge
+  { a: 0.520, r: -0.04 },  // rising from pocket
+  { a: 0.580, r: -0.01 },  // exiting pocket
+  { a: 0.625, r: 0.04 },   // valley floor rising
+  { a: 0.690, r: 0.14 },   // lower ascending flank
+  { a: 0.750, r: 0.36 },   // mid flank
+  { a: 0.800, r: 0.57 },   // steep ascent
+  { a: 0.850, r: 0.78 },   // upper flank
+  { a: 0.900, r: 0.92 },   // approaching tip
+  { a: 0.950, r: 0.95 },   // tip plateau edge
+  { a: 1.000, r: 0.95 },   // next tooth tip
 ]
 
 function n(v: number): string { return v.toFixed(3) }
@@ -121,22 +94,30 @@ export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label,
   const bodyRadius = outerRadius * 0.80
   const visualRpm = Math.min(Math.abs(rpm), 300)
   const duration = visualRpm > 0 ? 60 / visualRpm : 0
-  const toAngle = direction === 'ccw' ? -360 : 360
+
+  // Unique animation name per sprocket instance (sanitize decimals for CSS)
+  const animId = useMemo(() => `spin-${Math.round(cx)}-${Math.round(cy)}`, [cx, cy])
 
   return (
     <g>
+      {/* Inject keyframes for GPU-accelerated CSS rotation */}
+      {duration > 0 && (
+        <style>{`
+          @keyframes ${animId} {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(${direction === 'ccw' ? '-' : ''}360deg); }
+          }
+        `}</style>
+      )}
+
+      {/* Outer group: positions the sprocket */}
       <g transform={`translate(${cx}, ${cy})`}>
-        <g>
-          {duration > 0 && (
-            <animateTransform
-              attributeName="transform"
-              type="rotate"
-              from="0 0 0"
-              to={`${toAngle} 0 0`}
-              dur={`${duration}s`}
-              repeatCount="indefinite"
-            />
-          )}
+        {/* Inner group: handles rotation via CSS (GPU-composited) */}
+        <g style={duration > 0 ? {
+          animation: `${animId} ${duration}s linear infinite`,
+          transformOrigin: '0 0',
+          willChange: 'transform',
+        } as React.CSSProperties : undefined}>
 
           {/* Tooth profile */}
           <path
@@ -145,6 +126,7 @@ export default function SprocketSVG({ numTeeth, outerRadius, rpm, cx, cy, label,
             stroke="#b0b0b6"
             strokeWidth={0.3}
             strokeLinejoin="round"
+            shapeRendering="geometricPrecision"
           />
 
           {/* Inner body disc */}
